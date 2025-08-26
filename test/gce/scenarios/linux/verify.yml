@@ -2,9 +2,35 @@
 # This is an example playbook to execute Ansible tests.
 
 - name: Verify
-  hosts: all
+  hosts: localhost
   gather_facts: false
+  vars:
+    gcp_project_id: "{{ molecule_yml.driver.project_id | default(lookup('env', 'GCE_PROJECT_ID')) }}"
+    gcp_zone_default: "{{ molecule_yml.driver.region ~ '-b' }}"
   tasks:
-    - name: Example assertion
-      ansible.builtin.assert:
-        that: true
+    - name: Fetch instance info
+      google.cloud.gcp_compute_instance_info:
+        project: "{{ gcp_project_id }}"
+        zone: "{{ item.zone | default(gcp_zone_default) }}"
+        filters:
+          - "name = {{ item.name }}"
+      loop: "{{ molecule_yml.platforms }}"
+      loop_control:
+        loop_var: plat
+      register: inst_info
+
+    - name: Assert labels from molecule.yml are present on the instance
+      vars:
+        # pick the info entry that matches this platform
+        inst: "{{ (inst_info.results | selectattr('item.name','equalto', plat.name) | first).resources[0] }}"
+        expected: "{{ plat.labels | default({}) }}"
+      when: expected | length > 0
+      block:
+        - name: Assert each label key/value matches
+          ansible.builtin.assert:
+            that: "inst.labels.get(label.key) == label.value"
+            success_msg: "Label {{ label.key }}={{ label.value }} is present on {{ plat.name }}"
+            fail_msg: "Missing/incorrect label {{ label.key }} on {{ plat.name }} (actual={{ inst.labels | default({}) }})"
+          loop: "{{ expected | dict2items }}"
+          loop_control:
+            loop_var: label
