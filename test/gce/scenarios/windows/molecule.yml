@@ -13,6 +13,7 @@ driver:
 platforms:
   - name: linuxgce-createdbymolecule # is an instance name
     machine_type: n1-standard-1 # define your machine type
+    preemptible: true # Define if it should be a preemptive or not
     zone: # example: us-west1-b, will default to zone b of driver.region
     labels:
       env: ci

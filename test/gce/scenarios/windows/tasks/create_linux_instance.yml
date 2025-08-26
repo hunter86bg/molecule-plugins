@@ -13,6 +13,8 @@
     metadata:
       ssh-keys: "{{ lookup('env', 'USER') }}:{{ keypair.public_key }}"
     labels: "{{ item.labels | default(omit) }}"
+    scheduling:
+      preemptible: "{{ item.preemptible | default(false) }}"
     disks:
       - auto_delete: true
         boot: true
